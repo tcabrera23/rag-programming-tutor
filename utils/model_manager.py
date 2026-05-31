@@ -13,6 +13,16 @@ try:
 except ImportError:
     STREAMLIT_AVAILABLE = False
 
+
+def _in_streamlit() -> bool:
+    """True solo cuando estamos dentro de un script corriendo con `streamlit run`."""
+    if not STREAMLIT_AVAILABLE:
+        return False
+    # Evitar acceder a session_state fuera de un contexto Streamlit real
+    # comprobando la variable de entorno que Streamlit setea en su server.
+    import os
+    return bool(os.getenv("STREAMLIT_SERVER_PORT") or os.getenv("STREAMLIT_SHARING_MODE"))
+
 # LangChain imports
 try:
     from langchain_openai import ChatOpenAI
@@ -180,12 +190,12 @@ class ModelManager:
     
     def _load_custom_models_from_session(self):
         """Carga modelos personalizados desde st.session_state (solo en Streamlit)."""
-        if STREAMLIT_AVAILABLE and "custom_models" in st.session_state:
+        if _in_streamlit() and "custom_models" in st.session_state:
             self.custom_models = st.session_state.custom_models
 
     def _save_custom_models_to_session(self):
         """Guarda modelos personalizados en st.session_state (solo en Streamlit)."""
-        if STREAMLIT_AVAILABLE:
+        if _in_streamlit():
             st.session_state.custom_models = self.custom_models
     
     def add_custom_model(
