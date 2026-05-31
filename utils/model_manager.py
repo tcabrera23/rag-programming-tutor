@@ -6,7 +6,12 @@ Incluye sistema de fallbacks y clasificación automática de modelos.
 import os
 from typing import Optional, Dict, List, Literal
 from dataclasses import dataclass
-import streamlit as st
+
+try:
+    import streamlit as st
+    STREAMLIT_AVAILABLE = True
+except ImportError:
+    STREAMLIT_AVAILABLE = False
 
 # LangChain imports
 try:
@@ -174,13 +179,14 @@ class ModelManager:
         self._load_custom_models_from_session()
     
     def _load_custom_models_from_session(self):
-        """Carga modelos personalizados desde st.session_state."""
-        if "custom_models" in st.session_state:
+        """Carga modelos personalizados desde st.session_state (solo en Streamlit)."""
+        if STREAMLIT_AVAILABLE and "custom_models" in st.session_state:
             self.custom_models = st.session_state.custom_models
-    
+
     def _save_custom_models_to_session(self):
-        """Guarda modelos personalizados en st.session_state."""
-        st.session_state.custom_models = self.custom_models
+        """Guarda modelos personalizados en st.session_state (solo en Streamlit)."""
+        if STREAMLIT_AVAILABLE:
+            st.session_state.custom_models = self.custom_models
     
     def add_custom_model(
         self,

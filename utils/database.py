@@ -8,7 +8,12 @@ import json
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
 import os
-import streamlit as st
+
+try:
+    import streamlit as st
+    STREAMLIT_AVAILABLE = True
+except ImportError:
+    STREAMLIT_AVAILABLE = False
 
 
 def is_streamlit_cloud() -> bool:
@@ -16,6 +21,9 @@ def is_streamlit_cloud() -> bool:
     Detecta si estamos en Streamlit Cloud.
     En Streamlit Cloud no podemos escribir archivos persistentes.
     """
+    if not STREAMLIT_AVAILABLE:
+        return False
+
     # Streamlit Cloud tiene esta variable de entorno
     if os.getenv("STREAMLIT_SHARING_MODE") or os.getenv("STREAMLIT_CLOUD"):
         return True
@@ -457,10 +465,10 @@ class ConversationDatabase:
     """
     Clase adaptadora que elige automáticamente entre SQLite y SessionState.
     """
-    
+
     def __new__(cls, *args, **kwargs):
         """Crea instancia según el entorno (local o cloud)."""
-        if is_streamlit_cloud():
+        if STREAMLIT_AVAILABLE and is_streamlit_cloud():
             return SessionStateDatabase()
         else:
             return SQLiteDatabase(*args, **kwargs)
