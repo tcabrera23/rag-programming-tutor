@@ -8,13 +8,19 @@ from dataclasses import dataclass
 from typing import Dict, List, Literal, Optional
 
 try:
-    from langchain_community.chat_models import ChatOllama
-    from langchain_groq import ChatGroq
     from langchain_openai import ChatOpenAI
 except ImportError:
     ChatOpenAI = None
-    ChatOllama = None
+
+try:
+    from langchain_groq import ChatGroq
+except ImportError:
     ChatGroq = None
+
+try:
+    from langchain_community.chat_models import ChatOllama
+except ImportError:
+    ChatOllama = None
 
 
 ModelProvider = Literal["openrouter", "ollama", "groq"]
