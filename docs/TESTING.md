@@ -10,6 +10,16 @@ pytest tests/ -v
 
 En PowerShell: `.\venv\Scripts\python.exe -m pytest tests -v`.
 
+## E2E (Playwright)
+
+La UI de conversaciones se prueba en Chromium. El server arranca con `CHATPDP_E2E=1` (echo sin LLM) y un SQLite temporal (`CHATPDP_DB_PATH`), así no toca `data/conversations.db` ni pide API keys.
+
+```bash
+pip install -r requirements.txt
+playwright install chromium
+pytest tests/e2e -m e2e -v
+```
+
 ## Qué cubre
 
 | Archivo | Qué |
@@ -20,5 +30,6 @@ En PowerShell: `.\venv\Scripts\python.exe -m pytest tests -v`.
 | `test_file_extraction.py` | PDF e imágenes |
 | `test_integration.py` | RAG + LLM + Postgres |
 | `test_llm_judge.py` | Calidad de respuesta (LLM-as-a-Judge) |
+| `e2e/test_conversations_ui.py` | Historial, nueva conversación, selectores |
 
-Markers: `unit`, `integration`, `slow`, `judge`, `database`, `rag`.
+Markers: `unit`, `integration`, `slow`, `judge`, `database`, `rag`, `e2e`.

@@ -15,9 +15,13 @@ from app.domain.agents import AGENTS
 from app.domain.tools import get_file_extractor
 from app.infra.database import SQLiteDatabase
 from app.infra.llm import get_model_manager
-from app.services.chat import get_chat_service
+from app.services.chat import TurnResult, get_chat_service
 
 load_dotenv()
+
+
+def _e2e_enabled() -> bool:
+    return os.getenv("CHATPDP_E2E") == "1"
 
 
 def is_streamlit_cloud() -> bool:
@@ -108,7 +112,8 @@ class SessionStateDatabase:
 def get_ui_database():
     if is_streamlit_cloud():
         return SessionStateDatabase()
-    return SQLiteDatabase()
+    db_path = os.getenv("CHATPDP_DB_PATH", "data/conversations.db")
+    return SQLiteDatabase(db_path=db_path)
 
 
 st.set_page_config(
@@ -170,11 +175,19 @@ if "messages" not in st.session_state:
 if "current_agent" not in st.session_state:
     st.session_state.current_agent = "Wollok"
 
-if "current_model" not in st.session_state:
-    st.session_state.current_model = "groq/compound"
-
 if "model_provider" not in st.session_state:
-    st.session_state.model_provider = "groq"
+    st.session_state.model_provider = (
+        "openrouter"
+        if os.getenv("OPENROUTER_API_KEY") and not os.getenv("GROQ_API_KEY")
+        else "groq"
+    )
+
+if "current_model" not in st.session_state:
+    st.session_state.current_model = (
+        "google/gemini-2.5-flash-lite"
+        if st.session_state.model_provider == "openrouter"
+        else "groq/compound"
+    )
 
 if "auto_classify" not in st.session_state:
     st.session_state.auto_classify = True
@@ -193,16 +206,18 @@ with st.sidebar:
         "ollama": "💻 Local (Ollama)",
     }
 
-    current_index = 0
-    if st.session_state.model_provider != "groq":
-        st.session_state.model_provider = "groq"
-        current_index = 0
+    current_index = (
+        provider_options.index(st.session_state.model_provider)
+        if st.session_state.model_provider in provider_options
+        else 0
+    )
 
     provider = st.radio(
         "Selecciona el proveedor",
         options=provider_options,
         format_func=lambda x: provider_labels[x],
         index=current_index,
+        key="selector_proveedor",
         help="Groq: API gratuita ideal para empezar | OpenRouter: Acceso a todos los modelos | Ollama: Modelos locales sin costo",
     )
     st.session_state.model_provider = provider
@@ -258,6 +273,7 @@ with st.sidebar:
         "Selecciona el paradigma",
         options=list(AGENTS.keys()),
         index=list(AGENTS.keys()).index(st.session_state.current_agent),
+        key="selector_tutor",
         help="Elige el lenguaje de programación sobre el que necesitas ayuda",
     )
 
@@ -265,6 +281,7 @@ with st.sidebar:
     auto_classify = st.checkbox(
         "🎯 Auto-clasificar (optimizar costos)",
         value=st.session_state.auto_classify,
+        key="check_auto_clasificar",
         help="Clasifica automáticamente la consulta y selecciona el modelo más apropiado según dificultad",
     )
     st.session_state.auto_classify = auto_classify
@@ -353,12 +370,34 @@ with st.sidebar:
         help="Número de mensajes previos a mantener en memoria",
     )
 
-    st.markdown("---")
-    if st.button("➕ Nueva Conversación", use_container_width=True):
+    def _start_new_conversation():
         st.session_state.conversation_id = f"conv_{uuid.uuid4().hex[:8]}_{int(time.time())}"
         st.session_state.messages = []
         st.session_state.is_new_conversation = True
-        st.rerun()
+
+    def _load_conversation(conv_id: str):
+        loaded = st.session_state.db.get_conversation_messages(conv_id)
+        info = st.session_state.db.get_conversation_info(conv_id)
+        st.session_state.conversation_id = conv_id
+        st.session_state.messages = loaded
+        st.session_state.is_new_conversation = False
+        if info:
+            st.session_state.current_agent = info["agent_name"]
+            st.session_state.selector_tutor = info["agent_name"]
+            st.session_state.current_model = info["model_name"]
+
+    def _delete_conversation(conv_id: str):
+        st.session_state.db.delete_conversation(conv_id)
+        if st.session_state.conversation_id == conv_id:
+            _start_new_conversation()
+
+    st.markdown("---")
+    st.button(
+        "➕ Nueva Conversación",
+        use_container_width=True,
+        key="nueva_conversacion",
+        on_click=_start_new_conversation,
+    )
 
     st.markdown("### 📚 Historial")
     conversations = st.session_state.db.get_all_conversations()
@@ -368,25 +407,21 @@ with st.sidebar:
             is_current = conv["conversation_id"] == st.session_state.conversation_id
             with col1:
                 button_label = f"{'✅' if is_current else '💬'} {conv['title'][:30]}..."
-                if st.button(
+                st.button(
                     button_label,
                     key=f"load_{conv['conversation_id']}",
                     use_container_width=True,
                     type="primary" if is_current else "secondary",
-                ):
-                    loaded_messages = st.session_state.db.get_conversation_messages(
-                        conv["conversation_id"]
-                    )
-                    st.session_state.conversation_id = conv["conversation_id"]
-                    st.session_state.messages = loaded_messages
-                    st.session_state.current_agent = conv["agent_name"]
-                    st.session_state.current_model = conv["model_name"]
-                    st.session_state.is_new_conversation = False
-                    st.rerun()
+                    on_click=_load_conversation,
+                    args=(conv["conversation_id"],),
+                )
             with col2:
-                if st.button("🗑️", key=f"del_{conv['conversation_id']}"):
-                    st.session_state.db.delete_conversation(conv["conversation_id"])
-                    st.rerun()
+                st.button(
+                    "🗑️",
+                    key=f"del_{conv['conversation_id']}",
+                    on_click=_delete_conversation,
+                    args=(conv["conversation_id"],),
+                )
     else:
         st.info("No hay conversaciones previas")
 
@@ -407,13 +442,8 @@ with col2:
 with col3:
     st.info(f"**Contexto:** {context_window} msgs")
 
-if selected_agent != st.session_state.current_agent or selected_model_id != st.session_state.current_model:
-    st.session_state.current_agent = selected_agent
-    st.session_state.current_model = selected_model_id
-    if st.session_state.messages:
-        st.session_state.conversation_id = f"conv_{uuid.uuid4().hex[:8]}_{int(time.time())}"
-        st.session_state.messages = []
-        st.session_state.is_new_conversation = True
+st.session_state.current_agent = selected_agent
+st.session_state.current_model = selected_model_id
 
 st.markdown("---")
 
@@ -430,7 +460,7 @@ uploaded_file = st.file_uploader(
 )
 
 if prompt := st.chat_input("Escribe tu pregunta sobre " + selected_agent + "..."):
-    if not os.getenv("OPENROUTER_API_KEY"):
+    if not _e2e_enabled() and not os.getenv("OPENROUTER_API_KEY"):
         st.error("⚠️ Por favor, configura tu OpenRouter API Key en el sidebar")
         st.stop()
 
@@ -459,17 +489,23 @@ if prompt := st.chat_input("Escribe tu pregunta sobre " + selected_agent + "..."
         try:
             with st.spinner("🤔 Pensando..."):
                 history = st.session_state.messages[:-1]
-                result = get_chat_service().run_turn(
-                    agent_name=selected_agent,
-                    messages_history=history,
-                    user_message=prompt,
-                    model_id=selected_model_id,
-                    context_window=context_window,
-                    auto_classify=st.session_state.auto_classify,
-                    attachment_content=extracted_content,
-                    attachment_type=attachment_type,
-                    provider=provider,
-                )
+                if _e2e_enabled():
+                    result = TurnResult(
+                        content=f"E2E: {prompt}",
+                        model_id=selected_model_id,
+                    )
+                else:
+                    result = get_chat_service().run_turn(
+                        agent_name=selected_agent,
+                        messages_history=history,
+                        user_message=prompt,
+                        model_id=selected_model_id,
+                        context_window=context_window,
+                        auto_classify=st.session_state.auto_classify,
+                        attachment_content=extracted_content,
+                        attachment_type=attachment_type,
+                        provider=provider,
+                    )
 
                 if result.classification:
                     suggested = model_manager.get_model(result.model_id)
@@ -524,6 +560,7 @@ if prompt := st.chat_input("Escribe tu pregunta sobre " + selected_agent + "..."
                     role="assistant",
                     content=assistant_message,
                 )
+                st.rerun()
         except Exception as e:
             error_message = f"❌ Error al generar respuesta: {str(e)}"
             message_placeholder.error(error_message)

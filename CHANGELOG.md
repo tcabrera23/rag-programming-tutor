@@ -14,6 +14,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y [
 - UI Streamlit en `streamlit_app.py` (no puede coexistir `app.py` con el paquete `app/`).
 - Documentación compactada: README + anexos en `docs/` (supabase, security, testing).
 - RAG contra Postgres + pgvector local (`DATABASE_URL` + psycopg). Schema y seed de Wollok/Haskell/Prolog en `db/`. Supabase queda opcional solo para métricas.
+- Cambiar tutor/modelo ya no vacía el hilo. El historial se refresca tras cada mensaje. E2E Playwright en `tests/e2e`.
 
 ---
 
