@@ -12,33 +12,27 @@ import os
 
 class TestRAGIntegration:
     """Tests de integración para RAG."""
-    
-    def test_end_to_end_rag_flow_wollok(self, sample_wollok_query):
+
+    def test_end_to_end_rag_flow_wollok(self, sample_wollok_query, database_url):
         """Test: Flujo completo RAG para Wollok."""
-        # 1. Obtener configuración
+        if not os.getenv("OPENROUTER_API_KEY"):
+            pytest.skip("OPENROUTER_API_KEY requerido")
         agent_config = get_agent_config("Wollok")
-        
-        # 2. Buscar teoría
         rag = get_rag_instance()
         results = rag.search_theory(
             query=sample_wollok_query,
             table_name=agent_config["table"],
             query_name=agent_config["query_name"],
-            match_count=3
+            match_count=3,
         )
-        
-        # 3. Formatear resultados
         formatted = rag.format_results(results)
-        
         assert isinstance(formatted, str)
         assert len(formatted) > 0
-        
-        # Si hay resultados, verificar formato
         if "No se encontró" not in formatted:
             assert "# Teoría Recuperada" in formatted
             assert "Fragmento" in formatted
     
-    def test_end_to_end_llm_response(self, sample_wollok_query, openrouter_api_key):
+    def test_end_to_end_llm_response(self, sample_wollok_query, openrouter_api_key, database_url):
         """Test: Flujo completo con LLM."""
         # 1. Obtener config y buscar teoría
         agent_config = get_agent_config("Wollok")
@@ -83,8 +77,9 @@ class TestMultiAgentIntegration:
         ("Haskell", "¿Qué son las funciones de orden superior?"),
         ("Prolog", "¿Qué es la unificación?")
     ])
-    def test_all_agents_rag(self, agent_name, query):
-        """Test: Verificar que RAG funciona para todos los agentes."""
+    def test_all_agents_rag(self, agent_name, query, database_url):
+        if not os.getenv("OPENROUTER_API_KEY"):
+            pytest.skip("OPENROUTER_API_KEY requerido")
         agent_config = get_agent_config(agent_name)
         rag = get_rag_instance()
         
@@ -99,47 +94,28 @@ class TestMultiAgentIntegration:
         assert isinstance(results, list)
 
 
-class TestSupabaseConnection:
-    """Tests de conexión a Supabase."""
-    
-    def test_supabase_connection(self, supabase_config):
-        """Test: Verificar conexión a Supabase."""
-        from supabase import create_client
-        
-        supabase = create_client(
-            supabase_config["url"],
-            supabase_config["key"]
-        )
-        
-        assert supabase is not None
-    
-    def test_supabase_rpc_functions_exist(self, supabase_config):
-        """Test: Verificar que las funciones RPC existan."""
-        from supabase import create_client
-        
-        supabase = create_client(
-            supabase_config["url"],
-            supabase_config["key"]
-        )
-        
-        # Crear un embedding de prueba (vector de 1536 ceros)
-        test_embedding = [0.0] * 1536
-        
-        # Intentar llamar cada función RPC
-        rpc_functions = ["wollok_search", "haskell_search", "prolog_search"]
-        
-        for func_name in rpc_functions:
-            try:
-                response = supabase.rpc(
-                    func_name,
-                    {
-                        "query_embedding": test_embedding,
-                        "match_count": 1
-                    }
-                ).execute()
-                
-                # Si no falla, la función existe
-                assert response is not None
-            except Exception as e:
-                pytest.fail(f"RPC function {func_name} no disponible: {e}")
+class TestPostgresConnection:
+    """Tests de conexión a Postgres local."""
+
+    def test_database_url_connects(self, database_url):
+        import psycopg
+
+        with psycopg.connect(database_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM wollok")
+                (n,) = cur.fetchone()
+        assert n > 0
+
+    def test_search_functions_exist(self, database_url):
+        import psycopg
+
+        test_embedding = "[" + ",".join(["0"] * 1536) + "]"
+        with psycopg.connect(database_url) as conn:
+            with conn.cursor() as cur:
+                for fn in ("wollok_search", "haskell_search", "prolog_search"):
+                    cur.execute(
+                        f"SELECT * FROM {fn}(%s::vector, %s)",
+                        (test_embedding, 1),
+                    )
+                    assert cur.fetchall() is not None
 

@@ -1,33 +1,11 @@
-# Seguridad (RLS)
+# Seguridad
 
-La app usa `SUPABASE_ANON_KEY` (no la service role) para RAG y métricas. El alcance lo definen las políticas RLS.
+El RAG corre contra Postgres local (`DATABASE_URL`). El seed del repo es teoría de PdeP, no conversaciones de usuarios.
 
-## Por qué
+No commitear `.env` ni `.streamlit/secrets.toml`. La password de Docker (`chatpdep/chatpdep`) es solo para desarrollo local.
 
-La service key bypassa RLS. Si se filtra, hay acceso total. El anon key solo puede lo que las políticas permiten.
+## Métricas opcionales
 
-## Políticas
+`app/infra/tracking.py` puede escribir en `chatpdep_tokens` si definís `SUPABASE_URL` + `SUPABASE_ANON_KEY`. Sin esas variables, el tracking queda deshabilitado. No uses la service role en la app.
 
-Tablas de teoría (`wollok`, `haskell`, `prolog`): lectura pública para RAG.
-
-```sql
-CREATE POLICY "Permitir lectura pública en wollok"
-ON wollok FOR SELECT USING (true);
-```
-
-Igual para `haskell` y `prolog`. RLS debe estar habilitado en cada tabla.
-
-Tabla `chatpdep_tokens`: inserción pública, lectura autenticada.
-
-```sql
-CREATE POLICY "Permitir inserción pública en chatpdep_tokens"
-ON chatpdep_tokens FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Permitir lectura autenticada en chatpdep_tokens"
-ON chatpdep_tokens FOR SELECT
-USING (auth.role() = 'authenticated' OR auth.role() = 'service_role');
-```
-
-## Código
-
-`app/infra/rag.py` y `app/infra/tracking.py` leen `SUPABASE_ANON_KEY` y caen a `SUPABASE_SERVICE_KEY` solo por retrocompatibilidad. No commitear `.env` ni `.streamlit/secrets.toml`.
+Si montás las tablas de teoría en un Supabase propio, habilitá RLS y limitá `anon` a `SELECT` en `wollok` / `haskell` / `prolog`.

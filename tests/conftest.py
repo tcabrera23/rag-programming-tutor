@@ -24,12 +24,8 @@ else:
 
 @pytest.fixture(scope="session")
 def check_env_vars():
-    """Verifica keys necesarias para tests que pegan a APIs externas."""
-    required_vars = [
-        "OPENROUTER_API_KEY",
-        "SUPABASE_URL",
-        "SUPABASE_ANON_KEY",
-    ]
+    """Keys para tests que pegan a OpenRouter."""
+    required_vars = ["OPENROUTER_API_KEY"]
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     if missing_vars:
         pytest.skip(
@@ -45,12 +41,11 @@ def openrouter_api_key(check_env_vars):
 
 
 @pytest.fixture(scope="session")
-def supabase_config(check_env_vars):
-    """Retorna la configuración de Supabase."""
-    return {
-        "url": os.getenv("SUPABASE_URL"),
-        "key": os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_SERVICE_KEY"),
-    }
+def database_url():
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        pytest.skip("DATABASE_URL no configurado. Levantá Postgres: docker compose up -d postgres")
+    return url
 
 
 @pytest.fixture

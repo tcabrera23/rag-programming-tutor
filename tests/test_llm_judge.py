@@ -145,7 +145,7 @@ def llm_judge(openrouter_api_key):
 class TestWollokResponseQuality:
     """Tests de calidad para respuestas del agente Wollok."""
     
-    def test_wollok_basic_question(self, llm_judge, openrouter_api_key):
+    def test_wollok_basic_question(self, llm_judge, openrouter_api_key, database_url):
         """Test: Evaluar respuesta sobre concepto básico de Wollok."""
         question = "¿Qué es un objeto en Wollok?"
         
@@ -198,7 +198,7 @@ class TestWollokResponseQuality:
         assert evaluation["score_total"] >= 6.0, f"Score muy bajo: {evaluation['score_total']}"
         assert evaluation["paradigma_correcto"] is True, f"Paradigma incorrecto detectado: {evaluation.get('paradigma_detectado')}"
     
-    def test_wollok_code_question(self, llm_judge, openrouter_api_key):
+    def test_wollok_code_question(self, llm_judge, openrouter_api_key, database_url):
         """Test: Evaluar respuesta con código Wollok."""
         question = "Dame un ejemplo de clase en Wollok con atributos y métodos"
         
@@ -251,7 +251,7 @@ class TestWollokResponseQuality:
 class TestHaskellResponseQuality:
     """Tests de calidad para respuestas del agente Haskell."""
     
-    def test_haskell_basic_question(self, llm_judge, openrouter_api_key):
+    def test_haskell_basic_question(self, llm_judge, openrouter_api_key, database_url):
         """Test: Evaluar respuesta sobre concepto básico de Haskell."""
         question = "¿Qué son las funciones de orden superior en Haskell?"
         
@@ -304,7 +304,7 @@ class TestHaskellResponseQuality:
 class TestPrologResponseQuality:
     """Tests de calidad para respuestas del agente Prolog."""
     
-    def test_prolog_basic_question(self, llm_judge, openrouter_api_key):
+    def test_prolog_basic_question(self, llm_judge, openrouter_api_key, database_url):
         """Test: Evaluar respuesta sobre concepto básico de Prolog."""
         question = "¿Qué es la unificación en Prolog?"
         
@@ -350,7 +350,7 @@ class TestPrologResponseQuality:
         print(f"{'='*60}\n")
         
         assert "error" not in evaluation
-        # Score puede ser más bajo si no hay suficientes datos de Prolog en Supabase
+        # Score puede ser más bajo si el seed de Prolog no cubre el tema
         assert evaluation["score_total"] >= 4.0, f"Score muy bajo: {evaluation['score_total']}"
         assert evaluation["paradigma_correcto"] is True
 

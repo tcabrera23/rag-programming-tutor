@@ -1,60 +1,73 @@
 version: '3.8'
 
-# =============================================================================
-# Docker Compose para CPU (sin GPU)
-# =============================================================================
-# Este archivo es para usuarios que NO tienen GPU NVIDIA
-# Uso: docker-compose -f docker-compose.cpu.yml up --build
+# CPU only (sin GPU NVIDIA):
+# docker-compose -f docker-compose.cpu.yml up --build
 #
-# Diferencias con docker-compose.yml:
-# - No requiere configuración de GPU
-# - Funciona en cualquier sistema (Windows, Mac, Linux)
-# - Ollama usa solo CPU (más lento pero funcional)
+# El seed de RAG se carga solo la primera vez (volumen vacío).
+# Para reseed: docker compose -f docker-compose.cpu.yml down -v
 
 services:
-  # Servicio principal de la aplicación
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: chatpdep_postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: chatpdep
+      POSTGRES_PASSWORD: chatpdep
+      POSTGRES_DB: chatpdep
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./db/seed.sql.gz:/docker-entrypoint-initdb.d/02-seed.sql.gz:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatpdep -d chatpdep"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - chatpdep_network
+
   chatpdep:
     build: .
     container_name: chatpdep_app
     ports:
       - "8501:8501"
     volumes:
-      # Montar volumen para persistir base de datos SQLite
       - ./data:/app/data
-      # Montar código para desarrollo (opcional, comentar en producción)
       - .:/app
     environment:
-      # Variables de entorno (se pueden sobreescribir con .env)
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_KEY=${SUPABASE_ANON_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - DATABASE_URL=postgresql://chatpdep:chatpdep@postgres:5432/chatpdep
       - OLLAMA_BASE_URL=http://ollama:11434
     env_file:
       - .env
     depends_on:
-      - ollama
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
     restart: unless-stopped
     networks:
       - chatpdep_network
 
-  # Servicio de Ollama para LLMs locales (CPU only)
   ollama:
     image: ollama/ollama:latest
     container_name: chatpdep_ollama
     ports:
       - "11434:11434"
     volumes:
-      # Persistir modelos descargados
       - ollama_models:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0
-      # Variables para optimizar CPU
       - OLLAMA_NUM_PARALLEL=1
       - OLLAMA_MAX_LOADED_MODELS=1
     restart: unless-stopped
     networks:
       - chatpdep_network
-    # Instalar phi4-mini (economy) y qwen3 4b (código) por defecto
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -79,4 +92,6 @@ volumes:
   chatpdep_data:
     driver: local
   ollama_models:
+    driver: local
+  pgdata:
     driver: local

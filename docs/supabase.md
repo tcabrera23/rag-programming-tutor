@@ -1,52 +1,33 @@
-# Supabase / RAG
+# RAG (Postgres + pgvector)
 
-Búsqueda semántica sobre las tablas `wollok`, `haskell` y `prolog` (pgvector). El cliente vive en `app/infra/rag.py`.
+El corpus vive en tres tablas: `wollok`, `haskell`, `prolog`. Schema: [`db/schema.sql`](../db/schema.sql). Datos: [`db/seed.sql.gz`](../db/seed.sql.gz) (~1100 chunks, embeddings `vector(1536)` de `openai/text-embedding-3-small`).
 
-## RPC
+No hace falta una cuenta de Supabase para correr el tutor. Docker Compose levanta `pgvector/pgvector:pg16` y carga schema + seed al crear el volumen.
 
-Firma común:
-
-```sql
-{table}_search(
-    query_embedding vector,           -- 1536 dimensiones (text-embedding-3-small)
-    match_count integer DEFAULT NULL,
-    filter jsonb DEFAULT '{}'
-)
-RETURNS TABLE(id uuid, content text, metadata jsonb, similarity double precision)
+```bash
+docker compose up -d postgres
+# DATABASE_URL=postgresql://chatpdep:chatpdep@localhost:5432/chatpdep
 ```
 
-Funciones: `wollok_search`, `haskell_search`, `prolog_search`.
+Reseed (borra el volumen):
 
-Definición (ejemplo Wollok):
-
-```sql
-CREATE OR REPLACE FUNCTION public.wollok_search(
-    query_embedding vector,
-    match_count integer DEFAULT NULL::integer,
-    filter jsonb DEFAULT '{}'::jsonb
-)
-RETURNS TABLE(id uuid, content text, metadata jsonb, similarity double precision)
-LANGUAGE plpgsql
-AS $function$
-#variable_conflict use_column
-BEGIN
-    RETURN query
-    SELECT
-        id,
-        content,
-        metadata,
-        1 - (wollok.embedding <=> query_embedding) AS similarity
-    FROM public.wollok
-    WHERE (filter = '{}' OR metadata @> filter)
-    ORDER BY wollok.embedding <=> query_embedding
-    LIMIT match_count;
-END;
-$function$;
+```bash
+docker compose down -v
+docker compose up -d postgres
 ```
 
-Repetir para `haskell` y `prolog` cambiando el nombre de tabla.
+## Búsqueda
 
-## Llamada desde Python
+Mismas funciones que el RPC original:
+
+```sql
+{table}_search(query_embedding vector, match_count integer, filter jsonb DEFAULT '{}')
+RETURNS (id uuid, content text, metadata jsonb, similarity double precision)
+```
+
+`similarity = 1 - (embedding <=> query)`. Índice HNSW con `vector_cosine_ops`.
+
+Desde Python:
 
 ```python
 from app.infra.rag import get_rag_instance
@@ -60,8 +41,16 @@ results = rag.search_theory(
 )
 ```
 
-Embeddings: `openai/text-embedding-3-small` vía OpenRouter (`OPENROUTER_API_KEY`).
+`app/infra/rag.py` habla por `DATABASE_URL` (psycopg). Sigue haciendo embed de la query con OpenRouter.
 
-## Contrato RPC (no romper)
+## Recrear en un Postgres / Supabase propio
 
-Los parámetros reales son `query_embedding`, `match_count` y opcionalmente `filter`. No existe `match_threshold`. PostgREST exige el nombre y el orden de la firma; un parámetro extra o distinto produce `PGRST202`.
+Aplicá `db/schema.sql` y restaurá el seed:
+
+```bash
+gunzip -c db/seed.sql.gz | psql "$DATABASE_URL"
+```
+
+No copies un proyecto compartido de demos: este dump es solo las tres tablas de teoría.
+
+Para regenerar el gzip (no es parte del runtime): `python scripts/export_rag_seed.py` contra un Postgres/Supabase que ya tenga las tres tablas. El script no se commitea con keys.

@@ -1,6 +1,6 @@
 """
 Configuración de los agentes (tutores) de la aplicación ChatPdeP.
-Cada agente tiene su system prompt, tabla y query de Supabase correspondiente.
+Cada agente tiene su system prompt, tabla y función de búsqueda RAG.
 """
 
 # ============================================================================
