@@ -21,7 +21,6 @@ app/                      backend del agente
   infra/                  SQLite, RAG (Postgres), LLMs
 db/                       schema + seed pgvector
 tests/
-docs/
 ```
 
 ```
@@ -47,15 +46,15 @@ API (docs en http://localhost:8000/docs):
 uvicorn app.main:app --reload --port 8000
 ```
 
-Stack completo (UI + API + Postgres + Ollama):
+Stack completo (UI + API + Postgres + Ollama en CPU):
 
 ```bash
 docker compose up --build
 ```
 
-Sin GPU: `docker compose -f docker-compose.cpu.yml up --build`
-
 El seed se carga **solo la primera vez** (volumen vacío). Para recargarlo: `docker compose down -v`.
+
+Embeddings RAG usan OpenRouter (`text-embedding-3-small`). Schema: `db/schema.sql`. Tests: `pytest tests/ -v`. E2E de conversaciones: `playwright install chromium` y `pytest tests/e2e -m e2e -v`.
 
 ## Variables de entorno
 
@@ -82,9 +81,6 @@ Modo B — un solo proveedor: base URL `http://localhost:8000/v1`, modelos `chat
 
 Health: `GET /health`.
 
-## Anexos
+## Changelog
 
-- [RAG / Postgres](docs/supabase.md)
-- [Seguridad](docs/security.md)
-- [Tests](docs/testing.md)
-- [Changelog](CHANGELOG.md)
+[CHANGELOG.md](CHANGELOG.md)

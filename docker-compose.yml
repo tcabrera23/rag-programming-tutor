@@ -1,7 +1,7 @@
-version: '3.8'
-
 # El seed de RAG se carga solo la primera vez (volumen vacío).
 # Para reseed: docker compose down -v
+#
+# Ollama corre en CPU. `docker compose up -d postgres` alcanza para RAG local.
 
 services:
   postgres:
@@ -86,16 +86,11 @@ services:
       - ollama_models:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_LOADED_MODELS=1
     restart: unless-stopped
     networks:
       - chatpdep_network
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
