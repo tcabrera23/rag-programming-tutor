@@ -22,18 +22,15 @@ if env_path.exists():
 else:
     print(f"\n⚠️  Archivo .env NO encontrado en: {env_path}")
 
-# Verificar que las variables de entorno necesarias estén configuradas
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def check_env_vars():
-    """Verifica que las variables de entorno necesarias estén configuradas."""
+    """Verifica keys necesarias para tests que pegan a APIs externas."""
     required_vars = [
         "OPENROUTER_API_KEY",
         "SUPABASE_URL",
-        "SUPABASE_ANON_KEY"  # Usar ANON_KEY en lugar de SERVICE_KEY (más seguro)
+        "SUPABASE_ANON_KEY",
     ]
-    
     missing_vars = [var for var in required_vars if not os.getenv(var)]
-    
     if missing_vars:
         pytest.skip(
             f"Variables de entorno faltantes: {', '.join(missing_vars)}. "
@@ -42,18 +39,17 @@ def check_env_vars():
 
 
 @pytest.fixture(scope="session")
-def openrouter_api_key():
+def openrouter_api_key(check_env_vars):
     """Retorna la API key de OpenRouter."""
     return os.getenv("OPENROUTER_API_KEY")
 
 
 @pytest.fixture(scope="session")
-def supabase_config():
+def supabase_config(check_env_vars):
     """Retorna la configuración de Supabase."""
     return {
         "url": os.getenv("SUPABASE_URL"),
-        # Usar ANON_KEY (más seguro con RLS habilitado)
-        "key": os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_SERVICE_KEY")
+        "key": os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_SERVICE_KEY"),
     }
 
 
@@ -78,6 +74,6 @@ def sample_prolog_query():
 @pytest.fixture
 def agent_configs():
     """Retorna las configuraciones de todos los agentes."""
-    from config.agents import AGENTS
+    from app.domain.agents import AGENTS
     return AGENTS
 

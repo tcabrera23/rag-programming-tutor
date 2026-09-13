@@ -1,9 +1,10 @@
 """
-Tests unitarios para el módulo RAG (tools/rag_tool.py).
+Tests unitarios para el módulo RAG (app/infra/rag.py).
 """
 
 import pytest
-from tools.rag_tool import SupabaseRAG, get_rag_instance, recuperar_teoria
+from app.domain.tools import recuperar_teoria
+from app.infra.rag import SupabaseRAG, get_rag_instance
 
 
 class TestSupabaseRAG:

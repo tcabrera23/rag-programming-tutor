@@ -1,12 +1,12 @@
 """
-Tests unitarios para extracción de archivos (tools/file_extraction.py).
+Tests unitarios para extracción de archivos (app/domain/tools.py).
 """
 
 import pytest
 from io import BytesIO
 from PIL import Image
 import PyPDF2
-from tools.file_extraction import FileExtractor, get_file_extractor
+from app.domain.tools import FileExtractor, get_file_extractor
 
 
 class TestFileExtractor:

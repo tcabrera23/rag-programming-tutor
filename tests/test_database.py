@@ -1,15 +1,15 @@
 """
-Tests unitarios para la base de datos SQLite (utils/database.py).
+Tests unitarios para la base de datos SQLite (app/infra/database.py).
 """
 
 import pytest
 import os
 import tempfile
-from utils.database import ConversationDatabase
+from app.infra.database import SQLiteDatabase
 
 
-class TestConversationDatabase:
-    """Tests para la clase ConversationDatabase."""
+class TestSQLiteDatabase:
+    """Tests para la clase SQLiteDatabase."""
     
     @pytest.fixture
     def temp_db(self):
@@ -19,7 +19,7 @@ class TestConversationDatabase:
         os.close(fd)
         
         # Crear DB con el path temporal
-        db = ConversationDatabase(db_path=path)
+        db = SQLiteDatabase(db_path=path)
         
         yield db
         

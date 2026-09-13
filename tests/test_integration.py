@@ -5,8 +5,8 @@ Tests de integración para flujos completos de la aplicación.
 import pytest
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from tools.rag_tool import get_rag_instance
-from config.agents import get_agent_config
+from app.domain.agents import get_agent_config
+from app.infra.rag import get_rag_instance
 import os
 
 

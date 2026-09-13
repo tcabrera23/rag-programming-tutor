@@ -2,16 +2,9 @@
 Endpoints compatibles con la API de OpenAI.
 
 ── Modo A: base URL por agente (RECOMENDADO para Cursor) ─────────────────────
-  Configurá en Cursor tres "proveedores" separados:
-
   Agente Wollok  → Base URL: http://localhost:8000/v1/wollok
   Agente Haskell → Base URL: http://localhost:8000/v1/haskell
   Agente Prolog  → Base URL: http://localhost:8000/v1/prolog
-
-  Cursor llamará a:
-    GET  /v1/{agente}/models              → lista los LLMs disponibles
-    POST /v1/{agente}/chat/completions    → el campo "model" es el ID del LLM
-                                            (ej: "groq/compound", "openai/gpt-4o")
 
 ── Modo B: un único proveedor con agente+LLM en el nombre de modelo ──────────
   Base URL: http://localhost:8000/v1
@@ -28,9 +21,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from api.services.chat_service import get_chat_service, ChatService
-from config.agents import AGENTS
-from utils.model_manager import get_model_manager
+from app.domain.agents import AGENTS
+from app.infra.llm import get_model_manager
+from app.services.chat import ChatService, get_chat_service
 
 router = APIRouter(prefix="/v1", tags=["OpenAI Compatible"])
 
@@ -38,10 +31,7 @@ _AGENT_PREFIX = "chatpdep-"
 _DEFAULT_LLM = "groq/compound"
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
-
 def _resolve_agent(slug: str) -> str:
-    """Devuelve el nombre canónico del agente o 'Wollok' como fallback."""
     return next(
         (name for name in AGENTS if name.lower() == slug.lower()),
         "Wollok",
@@ -49,24 +39,17 @@ def _resolve_agent(slug: str) -> str:
 
 
 def _parse_model_field(model: str) -> tuple[str, str]:
-    """
-    Modo B: extrae (agent_name, llm_id) del campo model del request.
-    Soporta 'chatpdep-wollok' y 'chatpdep-wollok:groq/compound'.
-    """
     if not model.startswith(_AGENT_PREFIX):
         return _resolve_agent(model), _DEFAULT_LLM
-
     rest = model[len(_AGENT_PREFIX):]
     if ":" in rest:
         agent_slug, llm_id = rest.split(":", 1)
     else:
         agent_slug, llm_id = rest, _DEFAULT_LLM
-
     return _resolve_agent(agent_slug), llm_id
 
 
 def _llm_models_list(agent_name: str) -> list:
-    """Lista los LLMs disponibles en formato OpenAI model object."""
     mm = get_model_manager()
     all_models = (
         list(mm.PREDEFINED_MODELS.values())
@@ -110,8 +93,6 @@ def _sse_done(cid: str, model: str) -> str:
     }
     return f"data: {json.dumps(data)}\n\ndata: [DONE]\n\n"
 
-
-# ── Schemas ────────────────────────────────────────────────────────────────────
 
 class ChatMessage(BaseModel):
     role: Literal["user", "assistant", "system"]
@@ -184,18 +165,8 @@ def _run_chat(
     }
 
 
-# ── Modo A: base URL por agente (/v1/{agent_name}/*) ──────────────────────────
-
 @router.get("/{agent_slug}/models")
 def agent_models(agent_slug: str):
-    """
-    Lista los LLMs disponibles para un agente.
-    Cursor muestra estos modelos en el selector para elegir el LLM.
-
-    Ejemplos:
-      GET /v1/wollok/models
-      GET /v1/haskell/models
-    """
     agent_name = _resolve_agent(agent_slug)
     if agent_name not in AGENTS and agent_slug.capitalize() not in AGENTS:
         raise HTTPException(status_code=404, detail=f"Agente '{agent_slug}' no encontrado.")
@@ -208,26 +179,13 @@ def agent_chat_completions(
     request: ChatCompletionRequest,
     service: ChatService = Depends(get_chat_service),
 ):
-    """
-    Chat con un agente específico. El campo 'model' del request es el LLM a usar.
-
-    Ejemplos:
-      POST /v1/wollok/chat/completions   body: {"model": "groq/compound", ...}
-      POST /v1/haskell/chat/completions  body: {"model": "openai/gpt-4o", ...}
-    """
     agent_name = _resolve_agent(agent_slug)
     llm_model_id = request.model or _DEFAULT_LLM
     return _run_chat(service, request, agent_name, llm_model_id)
 
 
-# ── Modo B: un único proveedor (/v1/*) ────────────────────────────────────────
-
 @router.get("/models")
 def list_models():
-    """
-    Lista los agentes disponibles como modelos OpenAI (Modo B).
-    Base URL: http://localhost:8000/v1
-    """
     models = [
         {
             "id": f"{_AGENT_PREFIX}{name.lower()}",
@@ -246,6 +204,5 @@ def chat_completions(
     request: ChatCompletionRequest,
     service: ChatService = Depends(get_chat_service),
 ):
-    """Chat con agente+LLM codificados en el nombre del modelo (Modo B)."""
     agent_name, llm_model_id = _parse_model_field(request.model)
     return _run_chat(service, request, agent_name, llm_model_id)

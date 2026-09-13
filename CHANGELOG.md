@@ -1,6 +1,18 @@
-# 📝 Changelog - ChatPdeP
+# Changelog - ChatPdeP
 
 Todos los cambios notables de este proyecto serán documentados en este archivo.
+
+El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y [Semantic Versioning](https://semver.org/lang/es/).
+
+---
+
+## [Unreleased]
+
+### Cambiado
+
+- Backend reorganizado en `app/` (delivery, services, domain, infra). Streamlit y FastAPI usan el mismo turno (`app.services.chat`).
+- UI Streamlit en `streamlit_app.py` (no puede coexistir `app.py` con el paquete `app/`).
+- Documentación compactada: README + anexos en `docs/` (supabase, security, testing).
 
 ---
 

@@ -32,5 +32,5 @@ ENV STREAMLIT_SERVER_HEADLESS=true
 ENV STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
 
 # Comando para ejecutar la aplicación
-CMD ["streamlit", "run", "app.py"]
+CMD ["streamlit", "run", "streamlit_app.py"]
 

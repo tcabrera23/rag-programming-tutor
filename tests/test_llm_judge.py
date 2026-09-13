@@ -11,8 +11,8 @@ Este módulo usa un LLM como juez para evaluar:
 import pytest
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
-from tools.rag_tool import get_rag_instance
-from config.agents import get_agent_config
+from app.domain.agents import get_agent_config
+from app.infra.rag import get_rag_instance
 import json
 
 

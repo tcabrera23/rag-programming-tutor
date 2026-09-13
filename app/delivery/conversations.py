@@ -2,14 +2,14 @@
 CRUD de conversaciones: historial persistente en SQLite.
 """
 
-import uuid
 import time
-from typing import List, Optional
+import uuid
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from utils.database import SQLiteDatabase
+from app.infra.database import SQLiteDatabase
 
 router = APIRouter(prefix="/conversations", tags=["Conversations"])
 
@@ -17,8 +17,6 @@ router = APIRouter(prefix="/conversations", tags=["Conversations"])
 def get_db() -> SQLiteDatabase:
     return SQLiteDatabase()
 
-
-# ── Schemas ────────────────────────────────────────────────────────────────────
 
 class ConversationCreate(BaseModel):
     title: Optional[str] = None
@@ -31,17 +29,14 @@ class ConversationTitleUpdate(BaseModel):
 
 
 class MessageIn(BaseModel):
-    role: str  # "user" | "assistant"
+    role: str
     content: str
     has_attachment: bool = False
     attachment_type: Optional[str] = None
 
 
-# ── Routes ─────────────────────────────────────────────────────────────────────
-
 @router.get("")
 def list_conversations(db: SQLiteDatabase = Depends(get_db)):
-    """Lista todas las conversaciones ordenadas por fecha."""
     return db.get_all_conversations()
 
 
@@ -50,7 +45,6 @@ def create_conversation(
     body: ConversationCreate,
     db: SQLiteDatabase = Depends(get_db),
 ):
-    """Crea una nueva conversación vacía."""
     conversation_id = f"conv_{uuid.uuid4().hex[:8]}_{int(time.time())}"
     title = body.title or "Nueva conversación"
     ok = db.create_conversation(
@@ -69,7 +63,6 @@ def get_conversation(
     conversation_id: str,
     db: SQLiteDatabase = Depends(get_db),
 ):
-    """Devuelve info y mensajes de una conversación."""
     info = db.get_conversation_info(conversation_id)
     if not info:
         raise HTTPException(status_code=404, detail="Conversación no encontrada.")
@@ -83,7 +76,6 @@ def update_conversation_title(
     body: ConversationTitleUpdate,
     db: SQLiteDatabase = Depends(get_db),
 ):
-    """Actualiza el título de una conversación."""
     ok = db.update_conversation_title(conversation_id, body.title)
     if not ok:
         raise HTTPException(status_code=404, detail="Conversación no encontrada.")
@@ -95,7 +87,6 @@ def delete_conversation(
     conversation_id: str,
     db: SQLiteDatabase = Depends(get_db),
 ):
-    """Elimina una conversación y todos sus mensajes."""
     db.delete_conversation(conversation_id)
 
 
@@ -105,7 +96,6 @@ def add_message(
     body: MessageIn,
     db: SQLiteDatabase = Depends(get_db),
 ):
-    """Agrega un mensaje a una conversación existente (sin invocar al LLM)."""
     info = db.get_conversation_info(conversation_id)
     if not info:
         raise HTTPException(status_code=404, detail="Conversación no encontrada.")

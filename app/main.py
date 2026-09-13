@@ -1,19 +1,22 @@
 """
 ChatPdeP FastAPI Service.
-Expone el chat de agentes como API REST + endpoints compatibles con OpenAI
-para integraciones con Cursor, VS Code, etc.
+Expone el chat de agentes como API REST + endpoints compatibles con OpenAI.
 
-Uso rápido:
-    uvicorn api.main:app --reload --port 8000
+Uso:
+    uvicorn app.main:app --reload --port 8000
 
-Configuración Cursor:
+Cursor:
     Base URL : http://localhost:8000/v1
     Modelos  : chatpdep-wollok | chatpdep-haskell | chatpdep-prolog
 """
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
+
+from app.delivery.agents import router as agents_router
+from app.delivery.conversations import router as conv_router
+from app.delivery.openai import router as openai_router
 
 load_dotenv()
 
@@ -35,11 +38,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Routers
-from api.routes.openai import router as openai_router
-from api.routes.conversations import router as conv_router
-from api.routes.agents import router as agents_router
 
 app.include_router(openai_router)
 app.include_router(conv_router)

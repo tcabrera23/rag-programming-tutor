@@ -1,9 +1,9 @@
 """
-Tests para la configuración de agentes (config/agents.py).
+Tests para la configuración de agentes (app/domain/agents.py).
 """
 
 import pytest
-from config.agents import AGENTS, get_agent_config, AGENT_WOLLOK, AGENT_HASKELL, AGENT_PROLOG
+from app.domain.agents import AGENTS, get_agent_config, AGENT_WOLLOK, AGENT_HASKELL, AGENT_PROLOG
 
 
 class TestAgentsConfig:
